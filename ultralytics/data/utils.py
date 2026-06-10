@@ -265,13 +265,23 @@ def verify_image_label(args: tuple) -> list:
             if nl := len(lb):
                 if keypoint:
                     assert lb.shape[1] == (5 + nkpt * ndim), f"labels require {(5 + nkpt * ndim)} columns each"
-                    points = lb[:, 5:].reshape(-1, ndim)[:, :2]
+                    points = lb[:, 1:5]
+                    keypoints = lb[:, 5:].reshape(-1, nkpt, ndim)
+                    keypoint_xy = keypoints[..., :2]
+                    assert np.isfinite(keypoint_xy).all(), "non-finite keypoint coordinates"
+                    if ndim == 3:
+                        keypoint_visibility = keypoints[..., 2]
+                        assert (
+                            keypoint_visibility.min() >= -0.01 and keypoint_visibility.max() <= 2.01
+                        ), f"invalid keypoint visibility {keypoint_visibility[(keypoint_visibility < -0.01) | (keypoint_visibility > 2.01)]}"
                 else:
                     assert lb.shape[1] == 5, f"labels require 5 columns, {lb.shape[1]} columns detected"
                     points = lb[:, 1:]
-                # Coordinate points check with 1% tolerance
+                # Coordinate points check with 1% tolerance. For pose datasets, this applies only to bbox xywh;
+                # keypoint xy may be outside the image for off-frame cuboid corners.
                 assert points.max() <= 1.01, f"non-normalized or out of bounds coordinates {points[points > 1.01]}"
-                assert lb.min() >= -0.01, f"negative class labels or coordinate {lb[lb < -0.01]}"
+                assert points.min() >= -0.01, f"negative bbox coordinates {points[points < -0.01]}"
+                assert lb[:, 0].min() >= -0.01, f"negative class labels {lb[:, 0][lb[:, 0] < -0.01]}"
 
                 # All labels
                 max_cls = 0 if single_cls else lb[:, 0].max()  # max label count
