@@ -15,7 +15,7 @@ import torch
 from PIL import Image
 
 # OpenCV Multilanguage-friendly functions ------------------------------------------------------------------------------
-_imshow = cv2.imshow  # copy to avoid recursion errors
+_imshow = getattr(cv2, "imshow", None)  # copy to avoid recursion errors; may be absent in headless OpenCV
 
 
 def imread(filename: str, flags: int = cv2.IMREAD_COLOR) -> np.ndarray | None:
@@ -150,6 +150,8 @@ def imshow(winname: str, mat: np.ndarray) -> None:
         >>> img[:100, :100] = [255, 0, 0]  # Add a blue square
         >>> imshow("Example Window", img)  # Display the image
     """
+    if _imshow is None:
+        raise AttributeError("cv2.imshow is unavailable in this OpenCV build")
     _imshow(winname.encode("unicode_escape").decode(), mat)
 
 
